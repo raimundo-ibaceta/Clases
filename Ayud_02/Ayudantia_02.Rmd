@@ -10,23 +10,25 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Introducción a data cleaning
-Para los ejercicios a continuación es necesario que tengan descargados los siguientes paquetes:
+Para los ejercicios a continuación es necesario que tengan instalados los siguientes paquetes, que cargaremos a continuación a esta sesión:
 
-```{r instalando paquetes}
+```{r cargando paquetes}
 library(data.table)    ## Debiese tenerlo instalado ya
-library(readxl)        ## Carga datos tipo xlsx
+library(readxl)        ## Lectura de datos en formato xlsx
 ```
 
 Estaremos ocupando las bases de datos de los casos de COVID-19 a nivel mundial, por lo que creamos el objeto de clase data.table:
 
+Recordar que la opción `stringsAsFactors = F` le dice a data.table que al crear el objeto, no convierta las variables en formato string (characters) en factores (variables con etiqueta). Esto permite que sea el usuario quien determine si es necesario (y la forma) que la variable sea convertida a factor o no.
+
 ```{r cargando bases}
-casos <- data.table(read_excel("COVID_19_up_to_29_02_2020_cases.xlsx"))
-muertes <- data.table(read_excel("COVID_19_up_to_29_02_2020_deaths.xlsx"))
-mas_dias <- data.table(read_excel("COVID_19_from_01_03_2020_to_29_03_2020_all.xlsx"))
+casos <- data.table(read_excel("COVID_19_up_to_29_02_2020_cases.xlsx"),stringsAsFactors = F)
+muertes <- data.table(read_excel("COVID_19_up_to_29_02_2020_deaths.xlsx"),stringsAsFactors = F)
+mas_dias <- data.table(read_excel("COVID_19_from_01_03_2020_to_29_03_2020_all.xlsx"),stringsAsFactors = F)
 ```
 
 ### Clase de las bases y de sus columnas
-Es bueno tener en cuenta, en primera instancia, con la clase de datos que vamos a estar trabajando. Muchas veces ocurre que datos numéricos se encuentran codificados como clase "character" o "factor", lo que dificultael trabajo con funciones descriptivas para hacer análisis básico de los datos. Se puede observar rápidamente la clase de cada una de las variables/columnas de las bases de datos respectivas mediante las funciones "str" y "sapply":
+Es bueno tener en cuenta, en primera instancia, con la clase de datos que vamos a estar trabajando. Muchas veces ocurre que datos numéricos se encuentran codificados como clase "character" o "factor", lo que dificulta el trabajo con funciones descriptivas para hacer análisis básico de los datos. Se puede observar rápidamente la clase de cada una de las variables/columnas de las bases de datos respectivas mediante las funciones "str" y "sapply":
 
 ```{r str vs. sapply}
 str(casos)
@@ -35,14 +37,14 @@ sapply(muertes, FUN = class)
 sapply(mas_dias, FUN = class)
 ```
 
-Observamos que "str" entrega más datos sobre los data.table, pero es menos cómodo de ver que "sapply". Observamos que la columna "dateRep" de los objetos "casos" y "mas_dias", la cual representa la fecha completa (año,mes,día), es de clase "POSIXct". 
+Observamos que `str` entrega más datos sobre los data.table, pero es menos cómodo de ver que `sapply`. Observamos que la columna `dateRep` de los objetos `casos` y `mas_dias`, la cual representa la fecha completa (año,mes,día), es de clase `POSIXct`. 
 
 ```{r as.Date}
 casos$dateRep <- as.Date(casos$dateRep,"GMT")
 mas_dias$dateRep <- as.Date(mas_dias$dateRep,"GMT")
 ```
 
-Al igual que la función "as.Date", existen múltiples funciones para transformas columnas o bases de datos de una clase a otra. Las más comunes son "as.numeric" (que transforma a valores numericos, que no necesariamente poseen inicialmente clase numeric), "as.character" (transforma el/los elemento/s de una columna a character) y as.factor (ídem "as.character"). Por ejemplo:
+Al igual que la función `as.Date`, existen múltiples funciones para transformas columnas o bases de datos de una clase a otra. Las más comunes son `as.numeric` (que transforma a valores numericos, que no necesariamente poseen inicialmente clase numeric), `as.character` (transforma el/los elemento/s de una columna a character) y as.factor, que los transforma a números subyacentes con etiquetas de tipo `character`. Por ejemplo:
 
 ```{r class numeric}
 h <- "01"
@@ -52,27 +54,34 @@ class(h)
 h                   ## Notar que desaparece el "0"
 ```
 
-Veamos ahora las categorías de las variables de "mas_dias" (que después descubriremos que son todas las variables diponibles para las tres bases de datos):
+Veamos ahora las categorías de las variables de `mas_dias` (que después descubriremos que son todas las variables diponibles para las tres bases de datos):
 
 ```{r sapply}
 sapply(mas_dias, FUN = unique)
 ```
 
+> Ejercicio: ¿Cuál es la unidad observacional (la más granular) de cada base de datos?, ¿Cuáles son las variables comunes entre estas bases?
 
+```{r Ejercicio 1: }
+sapply(list(casos,muertes,mas_dias),FUN = names)
+
+
+```
 ### Funciones cbind, rbind y merge
-Antes de filtrar los datos y corregir errores, sería bueno unificar las bases de datos de "casos", "muertes" y "mas_dias", de tal manera de después modificar una única tabla de datos. Viendo nuevamente el chunck "str vs. sapply", se puede apreciar que las bases de datos "casos" y "muertes" poseen datos hasta el 29/02/2020, pero uno tiene los casos de infectados (y otros datos más), mientras que el otro posee los datos de muertos (y otros más). Por lo tanto, podemos unir la base de datos mediante dos métodos posibles:
+Antes de filtrar los datos y corregir errores, sería bueno unificar las bases de datos de `casos`, `muertes` y `mas_dias`, de tal manera de después modificar una única tabla de datos. Viendo nuevamente el chunck "str vs. sapply", se puede apreciar que las bases de datos `casos` y `muertes` poseen datos hasta el 29/02/2020, pero uno tiene los casos de infectados (y otros datos más), mientras que el otro posee los datos de muertos (y otros más). Por lo tanto, podemos unir la base de datos mediante dos métodos posibles:
 
 ```{r cbind}
+dim(casos)[1]==dim(muertes)[1] # ver si tienen el mismo número de filas.
 cbind(casos,muertes[,.(deaths)]) # Para que no se repitan las columnas, nos quedamos solo con la columna "deaths" de "muertes".
 ```
 
-La función "cbind" une dos bases de datos por columnas. Notar que si una columna es más corta que la otra, los datos faltantes de la columna más corta se llenan con datos repetidos. ¿Pero que ocurre si los datos de "muertes" estan desordenados? Es decir, puede exisitr el problema que los datos de "casos" de la fila 20 no sean los correspondientes con los de "muerte" de la misma fila (no es el mismo país, no es la misma fecha, etc...). En ese caso lo mejor que se puede hacer es un merge entre ambas bases:
+La función "cbind" une dos bases de datos por columnas. Notar que si una columna es más corta que la otra, los datos faltantes de la columna más corta se llenan con datos repetidos. ¿Pero que ocurre si los datos de `muertes` estan desordenados? Es decir, puede exisitr el problema que los datos de `casos` de la fila 20 no sean los correspondientes con los de `muerte` de la misma fila (no es el mismo país, no es la misma fecha, etc...). En ese caso lo mejor que se puede hacer es un merge entre ambas bases:
 
 ```{r merge}
-casosymuertes <- merge(casos,muertes, by = c("day","month","year","countriesAndTerritories"), all = T)
+casosymuertes <- merge(casos,muertes, by = c("day","month","year","countriesAndTerritories"), all = T,sort=F)
 ```
 
-Aquí lo que indico a R es que me adjunte los datos de las columnas de la segunda base de datos a la primera, de acuerdo a que ambas filas (de ambas bases de datos) cumplan con los mismos elementos en la columna "day", "month", "year" y "countriesAndTerritories". Ojo que, en caso de tener más de una fila que cumpla con dichas categorías, entonces hagran problemas en el merge (R no tiene instrucciones de a que fila asignar dicho dato repetido). En ese caso sería bueno hacer merge por más condiciones o revisar si la base de datos tiene algún error.
+Aquí lo que indico a R es que me adjunte los datos de las columnas de la segunda base de datos (`muertes`) a la primera (`casos`), de acuerdo a que ambas filas (de ambas bases de datos) cumplan con los mismos elementos estipualdos en el aergumento `by`. Es decir, se unen los casos que tengan los mismos valores en las columnas "day", "month", "year" y "countriesAndTerritories". Ojo que, en caso de tener más de una fila que cumpla con dichas categorías, entonces habran errores en el merge (`R` no tiene instrucciones de a que fila asignar dicho dato repetido). En ese caso sería bueno hacer merge por más condiciones o revisar si la base de datos tiene algún error.
 
 Por último, es necesario unir la continuación de la base de datos para el mes de marzo con la que acabamos de crear. Si observamos la base "mas_dias", notaremos que tiene las mismas variables que "casosymuertes":
 
@@ -91,7 +100,7 @@ al_29_03_2020 <- rbind(casosymuertes,mas_dias)
 
 ### Filtrar NAs y corregir 
 
-Anteriormente observamos que en la variable "countryterritoryCode" existen valores NA. ¿Pero como corroborar para el resto de las variables si también existen NAs? ¿Y para las otras bases?
+Anteriormente observamos que en la variable "countryterritoryCode" existen valores NA. ¿Pero cómo corroborar para el resto de las variables si también existen NAs? ¿Y para las otras bases?
 
 ```{r N° NAs}
 # Que filas presentan NAs
@@ -106,7 +115,9 @@ al_29_03_2020[!complete.cases(al_29_03_2020),.N]  ## Otro ejemplo
 ¿Que pasa si queremos saber el porcetnaje de NAs por columna, de tal manera de ver si tenemos datos suficientemente representativos?
 
 ```{r % NAs}
-apply(al_29_03_2020, 2, function(col){paste0(round(sum(is.na(col))/length(col),5)*100,"%")})
+apply(al_29_03_2020, 2, function(col){
+  paste0(round(sum(is.na(col))/length(col),5)*100,"%")
+  })
 ```
 
 Como dichos datos no son representatiovs, los eliminaremos (igual no trabajaremos con los datos de los países que estamos eliminando):
