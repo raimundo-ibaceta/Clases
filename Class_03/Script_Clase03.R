@@ -36,6 +36,8 @@ casosRM<-fread("Class_03/CasosCovid_RM.csv",header = T, showProgress = T,data.ta
 casosRM[,table(Sexo)]
 casosRM[Sexo=="Fememino",Sexo:="Femenino"]
 
+casosRM[`Centro de salud`=="Clínica Alemana",`Centro de salud`:="Clinica Alemana"]
+casosRM[,.N,by=.(`Centro de salud`)]
 
 # Creating (factor) variables
 
